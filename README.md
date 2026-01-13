@@ -1,28 +1,33 @@
 # 🏥 Projet Migration Données Médicales → MongoDB
 
 ## 📋 Description
+
 Migration de 55 500 dossiers médicaux de patients depuis CSV vers MongoDB.
 
 ## 🚀 Installation
 
 ### 1. Cloner le projet
+
 ```bash
 git clone [URL_DU_REPO]
 cd healthcare-migration
 ```
 
 ### 2. Créer l'environnement virtuel
+
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
 ### 3. Installer les dépendances
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 4. Télécharger le dataset
+
 Télécharge le fichier depuis [Kaggle](https://www.kaggle.com/datasets/prasad22/healthcare-dataset) et place-le dans `data/healthcare_dataset.csv`
 
 ## ▶️ Lancer la migration
@@ -34,6 +39,7 @@ python scripts/migration.py
 ## 📊 Structure de la base de données
 
 **Base de données :** `healthcare_db`
+
 **Collection :** `patients`
 
 **Champs :**
@@ -67,6 +73,33 @@ db.patients.aggregate([
 ])
 ```
 
+## 🧪 Tests
+
+Pour exécuter les tests unitaires :
+
+```bash
+pytest tests/test_migration.py -v
+```
+
+Pour voir la couverture de code :
+
+```bash
+pytest tests/test_migration.py --cov=scripts --cov-report=html
+```
+
+**Tests implémentés :**
+- ✅ Vérification de l'existence du fichier CSV
+- ✅ Validation du chargement des données (55 500 lignes)
+- ✅ Contrôle des colonnes requises
+- ✅ Détection des valeurs manquantes
+- ✅ Validation des types de données (âge positif)
+- ✅ Test de connexion à MongoDB
+- ✅ Vérification de l'existence de la base et collection
+- ✅ Contrôle du nombre de documents
+- ✅ Validation de la conversion des dates
+- ✅ Vérification des timestamps (created_at, updated_at)
+- ✅ Contrôle de la création des index
+
 ## ✅ Vérification
 
 Pour vérifier que tout fonctionne :
@@ -79,4 +112,5 @@ Pour vérifier que tout fonctionne :
 **Note :** Le script détecte les doublons (534 identifiés) mais les conserve dans la base de données.
 
 ## 👤 Auteur
+
 DataSoluTech - Janvier 2026
