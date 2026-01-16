@@ -323,15 +323,12 @@ def migrate_data():
     delete_result_1 = collection.delete_one({"Name": "Test Patient TO DELETE"})
     logger.info(f"   ✅ Patient de test supprimé: {delete_result_1.deleted_count} document(s) supprimé(s)")
     
-    # Exemple 2 : Supprimer TOUS les patients d'une condition médicale spécifique
-    # Note : On supprime seulement ceux avec le status "Nécessite suivi régulier" ajouté précédemment
-    # pour ne pas perdre toutes les données
+    # Exemple 2 : Supprimer les patients avec le statut temporaire "Nécessite suivi régulier"
+    # Note : On supprime seulement ceux avec ce statut ajouté précédemment à titre de démonstration
     delete_result_2 = collection.delete_many({
-        "Medical Condition": "Diabetes",
-        "status": "Nécessite suivi régulier",
-        "Age": {"$gt": 80}  # Filtre supplémentaire : seulement les patients de plus de 80 ans
+        "status": "Nécessite suivi régulier"
     })
-    logger.info(f"   ✅ Patients diabétiques de +80 ans supprimés: {delete_result_2.deleted_count} document(s) supprimé(s)")
+    logger.info(f"   ✅ Patients avec statut temporaire supprimés: {delete_result_2.deleted_count} document(s) supprimé(s)")
     
     # Exemple 3 : Supprimer les documents sans certains champs (nettoyage)
     delete_result_3 = collection.delete_many({
