@@ -9,7 +9,7 @@ Migration de 55 500 dossiers médicaux de patients depuis CSV vers MongoDB.
 ### 1. Cloner le projet
 
 ```bash
-git clone [URL_DU_REPO]
+git clone https://github.com/jordigarciag/healthcare-migration.git
 cd healthcare-migration
 ```
 
