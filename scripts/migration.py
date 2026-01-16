@@ -60,6 +60,7 @@ def migrate_data():
     6. Insérer les nouvelles données
     7. Créer des index pour accélérer les recherches
     8. Vérifier que tout s'est bien passé
+    9. Démontrer les opérations CRUD (Create, Read, Update, Delete)
     """
     
     # ========================================================================
@@ -164,7 +165,7 @@ def migrate_data():
     
     
     # ========================================================================
-    # ÉTAPE 6 : INSERTION DANS MONGODB
+    # ÉTAPE 6 : INSERTION DANS MONGODB (CREATE)
     # ========================================================================
     
     logger.info("💾 Insertion dans MongoDB...")
@@ -209,7 +210,7 @@ def migrate_data():
     
     
     # ========================================================================
-    # ÉTAPE 8 : VÉRIFICATION FINALE
+    # ÉTAPE 8 : VÉRIFICATION FINALE (READ)
     # ========================================================================
     
     logger.info("✔️ Vérification finale...")
@@ -224,11 +225,142 @@ def migrate_data():
     sample = collection.find_one()
     logger.info(f"📄 Exemple de document: {sample['Name']}, {sample['Age']} ans")
     
+    
+    # ========================================================================
+    # ÉTAPE 9 : DÉMONSTRATION DES OPÉRATIONS CRUD
+    # ========================================================================
+    
+    logger.info("\n" + "="*70)
+    logger.info("🧪 DÉMONSTRATION DES OPÉRATIONS CRUD")
+    logger.info("="*70)
+    
+    # ------------------------------------------------------------------------
+    # READ (Lecture avancée avec filtres)
+    # ------------------------------------------------------------------------
+    
+    logger.info("\n📖 READ - Lecture avec filtres:")
+    
+    # Exemple 1 : Trouver tous les patients diabétiques
+    diabetic_count = collection.count_documents({"Medical Condition": "Diabetes"})
+    logger.info(f"   ✅ Patients diabétiques trouvés: {diabetic_count}")
+    
+    # Exemple 2 : Trouver un patient spécifique par nom
+    patient = collection.find_one({"Name": {"$regex": "^Bobby", "$options": "i"}})
+    if patient:
+        logger.info(f"   ✅ Patient trouvé: {patient['Name']} - {patient['Medical Condition']}")
+    
+    # Exemple 3 : Compter les patients par hôpital (premier hôpital trouvé)
+    first_hospital = collection.find_one({}, {"Hospital": 1})
+    if first_hospital:
+        hospital_name = first_hospital['Hospital']
+        hospital_count = collection.count_documents({"Hospital": hospital_name})
+        logger.info(f"   ✅ Patients à l'hôpital '{hospital_name}': {hospital_count}")
+    
+    
+    # ------------------------------------------------------------------------
+    # UPDATE (Mise à jour ciblée)
+    # ------------------------------------------------------------------------
+    
+    logger.info("\n🔄 UPDATE - Mise à jour de documents:")
+    
+    # Exemple 1 : Mettre à jour le statut d'admission d'un patient spécifique
+    update_result_1 = collection.update_one(
+        {"Name": {"$regex": "^Bobby", "$options": "i"}},  # Filtre : trouve le premier patient dont le nom commence par Bobby
+        {
+            "$set": {
+                "Admission Type": "Elective (Updated)",
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    logger.info(f"   ✅ Statut d'admission mis à jour: {update_result_1.modified_count} document(s) modifié(s)")
+    
+    # Exemple 2 : Modifier les informations d'un hôpital pour tous les patients concernés
+    if first_hospital:
+        update_result_2 = collection.update_many(
+            {"Hospital": hospital_name},  # Filtre : tous les patients de cet hôpital
+            {
+                "$set": {
+                    "Hospital": f"{hospital_name} (Nom mis à jour)",
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        logger.info(f"   ✅ Nom d'hôpital mis à jour: {update_result_2.modified_count} document(s) modifié(s)")
+    
+    # Exemple 3 : Ajouter un champ "status" à tous les patients diabétiques
+    update_result_3 = collection.update_many(
+        {"Medical Condition": "Diabetes"},
+        {
+            "$set": {
+                "status": "Nécessite suivi régulier",
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    logger.info(f"   ✅ Champ 'status' ajouté: {update_result_3.modified_count} document(s) modifié(s)")
+    
+    
+    # ------------------------------------------------------------------------
+    # DELETE (Suppression ciblée)
+    # ------------------------------------------------------------------------
+    
+    logger.info("\n🗑️ DELETE - Suppression ciblée de documents:")
+    
+    # Exemple 1 : Supprimer UN patient spécifique par nom
+    # Note : On crée d'abord un patient test pour le supprimer
+    test_patient = {
+        "Name": "Test Patient TO DELETE",
+        "Age": 99,
+        "Gender": "Male",
+        "Medical Condition": "Test",
+        "Hospital": "Test Hospital",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    collection.insert_one(test_patient)
+    
+    delete_result_1 = collection.delete_one({"Name": "Test Patient TO DELETE"})
+    logger.info(f"   ✅ Patient de test supprimé: {delete_result_1.deleted_count} document(s) supprimé(s)")
+    
+    # Exemple 2 : Supprimer TOUS les patients d'une condition médicale spécifique
+    # Note : On supprime seulement ceux avec le status "Nécessite suivi régulier" ajouté précédemment
+    # pour ne pas perdre toutes les données
+    delete_result_2 = collection.delete_many({
+        "Medical Condition": "Diabetes",
+        "status": "Nécessite suivi régulier",
+        "Age": {"$gt": 80}  # Filtre supplémentaire : seulement les patients de plus de 80 ans
+    })
+    logger.info(f"   ✅ Patients diabétiques de +80 ans supprimés: {delete_result_2.deleted_count} document(s) supprimé(s)")
+    
+    # Exemple 3 : Supprimer les documents sans certains champs (nettoyage)
+    delete_result_3 = collection.delete_many({
+        "$or": [
+            {"Name": {"$exists": False}},
+            {"Age": {"$exists": False}}
+        ]
+    })
+    logger.info(f"   ✅ Documents incomplets supprimés: {delete_result_3.deleted_count} document(s) supprimé(s)")
+    
+    
+    # ------------------------------------------------------------------------
+    # VÉRIFICATION FINALE APRÈS CRUD
+    # ------------------------------------------------------------------------
+    
+    logger.info("\n📊 STATISTIQUES FINALES:")
+    final_count = collection.count_documents({})
+    logger.info(f"   ✅ Total de documents après opérations CRUD: {final_count}")
+    
+    logger.info("\n" + "="*70)
+    logger.info("🎉 OPÉRATIONS CRUD TERMINÉES AVEC SUCCÈS!")
+    logger.info("="*70)
+    
+    
     # Fermeture de la connexion MongoDB
     # Bonne pratique : toujours fermer les connexions pour libérer les ressources
     client.close()
     
-    logger.info("🎉 MIGRATION TERMINÉE AVEC SUCCÈS!")
+    logger.info("\n🎉 MIGRATION TERMINÉE AVEC SUCCÈS!")
 
 
 # ============================================================================
