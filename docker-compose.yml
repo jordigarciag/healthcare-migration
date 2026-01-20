@@ -1,0 +1,172 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════
+# SERVICES - Définition des conteneurs Docker
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  # ─────────────────────────────────────────────────────────────
+  # SERVICE MONGODB - Base de données NoSQL
+  # ─────────────────────────────────────────────────────────────
+  mongodb:
+    # Image officielle MongoDB version 7.0 depuis Docker Hub
+    image: mongo:7.0
+    
+    # Nom personnalisé du conteneur (facilite l'identification)
+    container_name: healthcare-mongodb
+    
+    # Redémarre automatiquement le conteneur en cas d'arrêt
+    restart: always
+    
+    # Variables d'environnement pour configurer MongoDB
+    environment:
+      # Nom d'utilisateur administrateur de MongoDB
+      MONGO_INITDB_ROOT_USERNAME: admin
+      
+      # Mot de passe administrateur (⚠️ À sécuriser en production)
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      
+      # Nom de la base de données créée au démarrage
+      MONGO_INITDB_DATABASE: healthcare_db
+    
+    # Mapping des ports : hôte:conteneur
+    # Permet d'accéder à MongoDB depuis ton PC sur localhost:27017
+    ports:
+      - "27017:27017"
+    
+    # Volumes pour persister les données
+    volumes:
+      # Stocke les données MongoDB (collections, documents)
+      # Sans ce volume, les données seraient perdues à chaque redémarrage
+      - mongodb_data:/data/db
+      
+      # Stocke la configuration MongoDB
+      - mongodb_config:/data/configdb
+    
+    # Connecte MongoDB au réseau personnalisé
+    networks:
+      - healthcare-network
+    
+    # Healthcheck : vérifie que MongoDB est prêt à accepter des connexions
+    healthcheck:
+      # Commande pour tester si MongoDB répond (envoie un "ping")
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      
+      # Vérifie toutes les 10 secondes
+      interval: 10s
+      
+      # Temps max d'attente pour chaque test
+      timeout: 5s
+      
+      # Nombre de tentatives avant de marquer comme "unhealthy"
+      retries: 5
+
+  # ─────────────────────────────────────────────────────────────
+  # SERVICE MIGRATION - Script Python pour migrer les données
+  # ─────────────────────────────────────────────────────────────
+  migration:
+    # Construit l'image Docker à partir du Dockerfile local
+    build:
+      # Contexte : dossier racine du projet (où se trouve Dockerfile)
+      context: .
+      
+      # Nom du fichier Dockerfile à utiliser
+      dockerfile: Dockerfile
+    
+    # Nom personnalisé du conteneur
+    container_name: healthcare-migration
+    
+    # Dépendances : attend que MongoDB soit prêt
+    depends_on:
+      mongodb:
+        # CRUCIAL : Ne démarre que si MongoDB est "healthy" (healthcheck OK)
+        # Évite les erreurs de connexion si MongoDB n'est pas encore prêt
+        condition: service_healthy
+    
+    # Variables d'environnement pour le script Python
+    environment:
+      # URI de connexion MongoDB
+      # "mongodb" = nom du service (résolu automatiquement par Docker)
+      MONGO_URI: mongodb://admin:admin123@mongodb:27017/
+      
+      # Nom de la base de données cible
+      MONGO_DB: healthcare_db
+    
+    # Monte des dossiers locaux dans le conteneur
+    volumes:
+      # Monte data/ en LECTURE SEULE (:ro = read-only)
+      # ./data (ton PC) → /app/data (conteneur)
+      - ./data:/app/data:ro
+      
+      # Monte scripts/ en LECTURE SEULE
+      # ./scripts (ton PC) → /app/scripts (conteneur)
+      - ./scripts:/app/scripts:ro
+    
+    # Connecte ce service au réseau personnalisé
+    networks:
+      - healthcare-network
+    
+    # Commande exécutée au démarrage du conteneur
+    command: python scripts/migration.py
+
+  # ─────────────────────────────────────────────────────────────
+  # SERVICE MONGO EXPRESS - Interface web pour MongoDB (optionnel)
+  # ─────────────────────────────────────────────────────────────
+  mongo-express:
+    # Image officielle Mongo Express (dernière version)
+    image: mongo-express:latest
+    
+    # Nom personnalisé du conteneur
+    container_name: healthcare-mongo-express
+    
+    # Redémarre automatiquement en cas d'arrêt
+    restart: always
+    
+    # Mapping des ports : accessible sur http://localhost:8081
+    ports:
+      - "8081:8081"
+    
+    # Configuration de Mongo Express
+    environment:
+      # Nom d'utilisateur MongoDB (doit correspondre au service mongodb)
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      
+      # Mot de passe MongoDB (doit correspondre au service mongodb)
+      ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
+      
+      # URL de connexion (utilise le nom de service "mongodb")
+      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/
+      
+      # Désactive l'authentification HTTP (pas de login supplémentaire)
+      ME_CONFIG_BASICAUTH: false
+    
+    # Attend que MongoDB soit démarré
+    depends_on:
+      - mongodb
+    
+    # Connecte ce service au réseau personnalisé
+    networks:
+      - healthcare-network
+
+# ═══════════════════════════════════════════════════════════════
+# VOLUMES - Stockage persistant des données
+# ═══════════════════════════════════════════════════════════════
+volumes:
+  # Volume pour les données MongoDB
+  # Les données survivent même si le conteneur est supprimé
+  mongodb_data:
+    driver: local
+  
+  # Volume pour la configuration MongoDB
+  mongodb_config:
+    driver: local
+
+# ═══════════════════════════════════════════════════════════════
+# NETWORKS - Réseau pour la communication entre conteneurs
+# ═══════════════════════════════════════════════════════════════
+networks:
+  # Réseau de type "bridge" (réseau isolé par défaut)
+  # Permet aux conteneurs de communiquer entre eux par leur nom
+  # Exemple : "mongodb" est automatiquement résolu vers l'IP du conteneur MongoDB
+  healthcare-network:
+    driver: bridge

@@ -1,15 +1,18 @@
 # ============================================================================
-# SCRIPT DE MIGRATION : CSV → MongoDB
+# SCRIPT DE MIGRATION : CSV → MongoDB (VERSION DOCKER)
 # ============================================================================
 # Ce script migre des données médicales depuis un fichier CSV vers MongoDB.
+# Compatible avec Docker et exécution locale.
 # Auteur : DataSoluTech
 # Date : Janvier 2026
 # ============================================================================
 
-
 # ============================================================================
 # IMPORTS : Bibliothèques nécessaires
 # ============================================================================
+import os
+# os : Module pour interagir avec le système d'exploitation
+# Utilisé ici pour lire les variables d'environnement et gérer les chemins
 
 import pandas as pd
 # pandas (pd) : Bibliothèque pour manipuler des données tabulaires (CSV, Excel, etc.)
@@ -28,32 +31,26 @@ import logging
 # logging : Module pour afficher des messages informatifs pendant l'exécution
 # Permet de suivre la progression du script et de déboguer en cas d'erreur
 
-
 # ============================================================================
 # CONFIGURATION DU LOGGING : Afficher des messages pendant l'exécution
 # ============================================================================
-
 logging.basicConfig(
-    level=logging.INFO,  # Niveau INFO : affiche les messages informatifs (pas juste les erreurs)
+    level=logging.INFO,  # Niveau INFO : affiche les messages informatifs
     format='%(asctime)s - %(levelname)s - %(message)s'
     # Format : [Date/Heure] - [Niveau] - [Message]
-    # Exemple : 2026-01-13 19:30:15 - INFO - Connexion réussie!
 )
 logger = logging.getLogger(__name__)
-# Crée un objet "logger" qu'on utilisera pour afficher des messages avec logger.info()
-
 
 # ============================================================================
 # FONCTION PRINCIPALE DE MIGRATION
 # ============================================================================
-
 def migrate_data():
     """
     Fonction principale qui orchestre toute la migration.
     
     Étapes :
-    1. Se connecter à MongoDB
-    2. Charger le fichier CSV
+    1. Se connecter à MongoDB (compatible Docker et local)
+    2. Charger le fichier CSV (chemin flexible)
     3. Valider les données
     4. Transformer les données (dates, structure)
     5. Supprimer les anciennes données (si on refait la migration)
@@ -64,44 +61,54 @@ def migrate_data():
     """
     
     # ========================================================================
-    # ÉTAPE 1 : CONNEXION À MONGODB
+    # ÉTAPE 1 : CONNEXION À MONGODB (COMPATIBLE DOCKER)
     # ========================================================================
     
     logger.info("🔌 Connexion à MongoDB...")
     
+    # Configuration depuis les variables d'environnement
+    # os.getenv() lit une variable d'environnement
+    # Si elle n'existe pas, utilise la valeur par défaut (2e paramètre)
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+    MONGO_DB = os.getenv("MONGO_DB", "healthcare_db")
+    
     # MongoClient crée une connexion à MongoDB
-    # "mongodb://localhost:27017/" signifie :
-    # - mongodb:// → protocole de connexion
-    # - localhost → serveur local (ton ordinateur)
-    # - 27017 → port par défaut de MongoDB
-    client = MongoClient("mongodb://localhost:27017/")
+    # En Docker : mongodb://admin:admin123@mongodb:27017/
+    # En local : mongodb://localhost:27017/
+    client = MongoClient(MONGO_URI)
     
-    # Sélection de la base de données "healthcare_db"
-    # Si elle n'existe pas, MongoDB la créera automatiquement
-    db = client["healthcare_db"]
+    # Sélection de la base de données
+    db = client[MONGO_DB]
     
-    # Sélection de la collection "patients" (équivalent d'une "table" en SQL)
-    # Si elle n'existe pas, MongoDB la créera automatiquement
+    # Sélection de la collection "patients"
     collection = db["patients"]
     
-    logger.info("✅ Connexion réussie!")
-    
+    logger.info(f"✅ Connexion réussie à {MONGO_URI}")
+    logger.info(f"✅ Base de données : {MONGO_DB}")
     
     # ========================================================================
-    # ÉTAPE 2 : CHARGEMENT DU FICHIER CSV
+    # ÉTAPE 2 : CHARGEMENT DU FICHIER CSV (CHEMIN FLEXIBLE)
     # ========================================================================
     
     logger.info("📂 Chargement du fichier CSV...")
     
+    # Chemin du fichier CSV (compatible Docker et local)
+    # Priorité 1 : Variable d'environnement CSV_PATH
+    # Priorité 2 : Chemin relatif local ../data/healthcare_dataset.csv
+    # Priorité 3 : Chemin Docker data/healthcare_dataset.csv
+    csv_path = os.getenv("CSV_PATH", "../data/healthcare_dataset.csv")
+    
+    # Vérification : si le chemin n'existe pas, essayer le chemin Docker
+    if not os.path.exists(csv_path):
+        csv_path = "data/healthcare_dataset.csv"
+        logger.info(f"   📍 Utilisation du chemin Docker : {csv_path}")
+    else:
+        logger.info(f"   📍 Utilisation du chemin local : {csv_path}")
+    
     # pandas.read_csv() lit le fichier CSV et le convertit en DataFrame
-    # Un DataFrame est comme un tableau Excel en Python
-    # Chaque ligne = un patient, chaque colonne = une information (nom, âge, etc.)
-    # CORRECTION : "../data/" pour remonter d'un niveau depuis le dossier scripts/
-    df = pd.read_csv("../data/healthcare_dataset.csv")
+    df = pd.read_csv(csv_path)
     
-    # len(df) compte le nombre de lignes (= nombre de patients)
     logger.info(f"✅ {len(df)} enregistrements chargés")
-    
     
     # ========================================================================
     # ÉTAPE 3 : VALIDATION DES DONNÉES
@@ -109,20 +116,14 @@ def migrate_data():
     
     logger.info("🔍 Validation des données...")
     
-    # Affiche la liste des colonnes du CSV pour vérifier qu'on a tout
-    # Exemple : ['Name', 'Age', 'Gender', 'Blood Type', ...]
+    # Affiche la liste des colonnes du CSV
     logger.info(f"   Colonnes: {list(df.columns)}")
     
-    # Compte le nombre total de valeurs manquantes dans tout le DataFrame
-    # df.isnull() → identifie les cellules vides
-    # .sum().sum() → additionne tout
+    # Compte le nombre total de valeurs manquantes
     logger.info(f"   Valeurs manquantes: {df.isnull().sum().sum()}")
     
-    # Compte le nombre de lignes en double (patients identiques)
-    # df.duplicated() → identifie les doublons
-    # .sum() → compte combien il y en a
+    # Compte le nombre de lignes en double
     logger.info(f"   Doublons: {df.duplicated().sum()}")
-    
     
     # ========================================================================
     # ÉTAPE 4 : TRANSFORMATION DES DONNÉES
@@ -131,38 +132,25 @@ def migrate_data():
     logger.info("🔄 Transformation des données...")
     
     # Conversion des colonnes de dates en objets datetime
-    # Par défaut, pandas lit les dates comme du texte (string)
-    # pd.to_datetime() les convertit en vraies dates manipulables
     df['Date of Admission'] = pd.to_datetime(df['Date of Admission'])
     df['Discharge Date'] = pd.to_datetime(df['Discharge Date'])
     
     # Conversion du DataFrame en liste de dictionnaires
-    # 'records' signifie : chaque ligne devient un dictionnaire
-    # Exemple : {'Name': 'Bobby Jackson', 'Age': 30, 'Gender': 'Male', ...}
-    # C'est le format attendu par MongoDB
     documents = df.to_dict('records')
     
-    # Ajout de timestamps (horodatages) à chaque document
-    # created_at : date de création du document dans MongoDB
-    # updated_at : date de dernière modification (même valeur au début)
-    # datetime.utcnow() : date/heure actuelle en temps universel (UTC)
+    # Ajout de timestamps à chaque document
     for doc in documents:
         doc['created_at'] = datetime.utcnow()
         doc['updated_at'] = datetime.utcnow()
     
     logger.info(f"✅ {len(documents)} documents prêts")
     
-    
     # ========================================================================
     # ÉTAPE 5 : SUPPRESSION DES ANCIENNES DONNÉES
     # ========================================================================
     
-    # Si on relance le script plusieurs fois, on supprime d'abord les anciennes données
-    # collection.delete_many({}) : supprime tous les documents (le {} vide = "tout")
-    # Comme un "TRUNCATE TABLE" en SQL
     collection.delete_many({})
     logger.info("🗑️ Anciennes données supprimées")
-    
     
     # ========================================================================
     # ÉTAPE 6 : INSERTION DANS MONGODB (CREATE)
@@ -171,14 +159,9 @@ def migrate_data():
     logger.info("💾 Insertion dans MongoDB...")
     
     # insert_many() insère plusieurs documents en une seule opération
-    # C'est beaucoup plus rapide que d'insérer un par un
-    # result contient des infos sur l'insertion (IDs générés, etc.)
     result = collection.insert_many(documents)
     
-    # result.inserted_ids : liste des IDs MongoDB générés automatiquement
-    # On compte combien il y en a pour vérifier que tout est inséré
     logger.info(f"✅ {len(result.inserted_ids)} documents insérés!")
-    
     
     # ========================================================================
     # ÉTAPE 7 : CRÉATION DES INDEX
@@ -187,27 +170,12 @@ def migrate_data():
     logger.info("📇 Création des index...")
     
     # Un INDEX accélère les recherches sur un champ spécifique
-    # C'est comme un sommaire dans un livre : au lieu de lire tout le livre
-    # pour trouver un chapitre, on regarde le sommaire
-    #
-    # ASCENDING : tri croissant (A→Z, 0→9, dates anciennes→récentes)
-    #
-    # On crée des index sur les champs qu'on utilisera souvent pour filtrer :
-    
     collection.create_index([("Name", ASCENDING)])
-    # Accélère : db.patients.find({"Name": "Bobby Jackson"})
-    
     collection.create_index([("Medical Condition", ASCENDING)])
-    # Accélère : db.patients.find({"Medical Condition": "Diabetes"})
-    
     collection.create_index([("Hospital", ASCENDING)])
-    # Accélère : db.patients.find({"Hospital": "Smith PLC"})
-    
     collection.create_index([("Date of Admission", ASCENDING)])
-    # Accélère : db.patients.find({"Date of Admission": {$gte: date}})
     
     logger.info("✅ Index créés!")
-    
     
     # ========================================================================
     # ÉTAPE 8 : VÉRIFICATION FINALE (READ)
@@ -216,15 +184,12 @@ def migrate_data():
     logger.info("✔️ Vérification finale...")
     
     # Compte le nombre total de documents dans la collection
-    # Doit correspondre au nombre de lignes du CSV
     count = collection.count_documents({})
     logger.info(f"✅ Total dans MongoDB: {count} documents")
     
     # Récupère UN document au hasard pour l'afficher en exemple
-    # find_one() sans filtre retourne le premier document trouvé
     sample = collection.find_one()
     logger.info(f"📄 Exemple de document: {sample['Name']}, {sample['Age']} ans")
-    
     
     # ========================================================================
     # ÉTAPE 9 : DÉMONSTRATION DES OPÉRATIONS CRUD
@@ -249,13 +214,12 @@ def migrate_data():
     if patient:
         logger.info(f"   ✅ Patient trouvé: {patient['Name']} - {patient['Medical Condition']}")
     
-    # Exemple 3 : Compter les patients par hôpital (premier hôpital trouvé)
+    # Exemple 3 : Compter les patients par hôpital
     first_hospital = collection.find_one({}, {"Hospital": 1})
     if first_hospital:
         hospital_name = first_hospital['Hospital']
         hospital_count = collection.count_documents({"Hospital": hospital_name})
         logger.info(f"   ✅ Patients à l'hôpital '{hospital_name}': {hospital_count}")
-    
     
     # ------------------------------------------------------------------------
     # UPDATE (Mise à jour ciblée)
@@ -263,9 +227,9 @@ def migrate_data():
     
     logger.info("\n🔄 UPDATE - Mise à jour de documents:")
     
-    # Exemple 1 : Mettre à jour le statut d'admission d'un patient spécifique
+    # Exemple 1 : Mettre à jour le statut d'admission d'un patient
     update_result_1 = collection.update_one(
-        {"Name": {"$regex": "^Bobby", "$options": "i"}},  # Filtre : trouve le premier patient dont le nom commence par Bobby
+        {"Name": {"$regex": "^Bobby", "$options": "i"}},
         {
             "$set": {
                 "Admission Type": "Elective (Updated)",
@@ -273,12 +237,12 @@ def migrate_data():
             }
         }
     )
-    logger.info(f"   ✅ Statut d'admission mis à jour: {update_result_1.modified_count} document(s) modifié(s)")
+    logger.info(f"   ✅ Statut d'admission mis à jour: {update_result_1.modified_count} document(s)")
     
-    # Exemple 2 : Modifier les informations d'un hôpital pour tous les patients concernés
+    # Exemple 2 : Modifier les informations d'un hôpital
     if first_hospital:
         update_result_2 = collection.update_many(
-            {"Hospital": hospital_name},  # Filtre : tous les patients de cet hôpital
+            {"Hospital": hospital_name},
             {
                 "$set": {
                     "Hospital": f"{hospital_name} (Nom mis à jour)",
@@ -286,7 +250,7 @@ def migrate_data():
                 }
             }
         )
-        logger.info(f"   ✅ Nom d'hôpital mis à jour: {update_result_2.modified_count} document(s) modifié(s)")
+        logger.info(f"   ✅ Nom d'hôpital mis à jour: {update_result_2.modified_count} document(s)")
     
     # Exemple 3 : Ajouter un champ "status" à tous les patients diabétiques
     update_result_3 = collection.update_many(
@@ -298,8 +262,7 @@ def migrate_data():
             }
         }
     )
-    logger.info(f"   ✅ Champ 'status' ajouté: {update_result_3.modified_count} document(s) modifié(s)")
-    
+    logger.info(f"   ✅ Champ 'status' ajouté: {update_result_3.modified_count} document(s)")
     
     # ------------------------------------------------------------------------
     # DELETE (Suppression ciblée)
@@ -307,8 +270,7 @@ def migrate_data():
     
     logger.info("\n🗑️ DELETE - Suppression ciblée de documents:")
     
-    # Exemple 1 : Supprimer UN patient spécifique par nom
-    # Note : On crée d'abord un patient test pour le supprimer
+    # Exemple 1 : Supprimer UN patient de test
     test_patient = {
         "Name": "Test Patient TO DELETE",
         "Age": 99,
@@ -321,24 +283,22 @@ def migrate_data():
     collection.insert_one(test_patient)
     
     delete_result_1 = collection.delete_one({"Name": "Test Patient TO DELETE"})
-    logger.info(f"   ✅ Patient de test supprimé: {delete_result_1.deleted_count} document(s) supprimé(s)")
+    logger.info(f"   ✅ Patient de test supprimé: {delete_result_1.deleted_count} document(s)")
     
-    # Exemple 2 : Supprimer les patients avec le statut temporaire "Nécessite suivi régulier"
-    # Note : On supprime seulement ceux avec ce statut ajouté précédemment à titre de démonstration
+    # Exemple 2 : Supprimer les patients avec le statut temporaire
     delete_result_2 = collection.delete_many({
         "status": "Nécessite suivi régulier"
     })
-    logger.info(f"   ✅ Patients avec statut temporaire supprimés: {delete_result_2.deleted_count} document(s) supprimé(s)")
+    logger.info(f"   ✅ Patients avec statut temporaire supprimés: {delete_result_2.deleted_count} document(s)")
     
-    # Exemple 3 : Supprimer les documents sans certains champs (nettoyage)
+    # Exemple 3 : Supprimer les documents incomplets
     delete_result_3 = collection.delete_many({
         "$or": [
             {"Name": {"$exists": False}},
             {"Age": {"$exists": False}}
         ]
     })
-    logger.info(f"   ✅ Documents incomplets supprimés: {delete_result_3.deleted_count} document(s) supprimé(s)")
-    
+    logger.info(f"   ✅ Documents incomplets supprimés: {delete_result_3.deleted_count} document(s)")
     
     # ------------------------------------------------------------------------
     # VÉRIFICATION FINALE APRÈS CRUD
@@ -352,20 +312,14 @@ def migrate_data():
     logger.info("🎉 OPÉRATIONS CRUD TERMINÉES AVEC SUCCÈS!")
     logger.info("="*70)
     
-    
     # Fermeture de la connexion MongoDB
-    # Bonne pratique : toujours fermer les connexions pour libérer les ressources
     client.close()
     
     logger.info("\n🎉 MIGRATION TERMINÉE AVEC SUCCÈS!")
 
-
 # ============================================================================
 # POINT D'ENTRÉE DU SCRIPT
 # ============================================================================
-
 if __name__ == "__main__":
-    # Cette ligne signifie : "Si on exécute CE fichier directement"
-    # (pas si on l'import dans un autre fichier)
-    # Alors on lance la fonction migrate_data()
+    # Si on exécute CE fichier directement, on lance la migration
     migrate_data()

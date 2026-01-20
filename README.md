@@ -36,6 +36,50 @@ Télécharge le fichier depuis [Kaggle](https://www.kaggle.com/datasets/prasad22
 python scripts/migration.py
 ```
 
+---
+
+## 🐳 Déploiement avec Docker
+
+### Prérequis
+- Docker Desktop installé (Windows/Mac) ou Docker Engine (Linux)
+- Docker Compose installé
+
+### Lancement rapide
+
+```bash
+# 1. Cloner le projet
+git clone https://github.com/jordigarciag/healthcare-migration.git
+cd healthcare-migration
+
+# 2. Construire et démarrer
+docker-compose up -d
+
+# 3. Suivre la migration
+docker-compose logs -f migration
+
+# 4. Vérifier les données
+docker exec -it healthcare-mongodb mongosh -u admin -p admin123
+```
+
+### Interface Web
+Accédez à Mongo Express : http://localhost:8081
+
+### Services déployés
+- **MongoDB** : Port 27017
+- **Mongo Express** : Port 8081
+- **Script Migration** : S'exécute automatiquement
+
+### Volumes persistants
+- `mongodb_data` : Données MongoDB
+- `mongodb_config` : Configuration MongoDB
+
+### Arrêter les services
+```bash
+docker-compose down
+```
+
+---
+
 ## 📊 Structure de la base de données
 
 **Base de données :** `healthcare_db`
@@ -104,8 +148,8 @@ pytest tests/test_migration.py --cov=scripts --cov-report=html
 
 Pour vérifier que tout fonctionne :
 
-1. Ouvre MongoDB Compass
-2. Connecte-toi à `mongodb://localhost:27017`
+1. Ouvre Mongo Express : http://localhost:8081
+2. Connecte-toi avec admin / admin123
 3. Va dans `healthcare_db` → `patients`
 4. Tu devrais voir 55 500 documents
 

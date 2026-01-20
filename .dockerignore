@@ -1,0 +1,13 @@
+venv/  # Environnement virtuel Python (inutile dans Docker)
+__pycache__/  # Cache Python (se régénère automatiquement)
+*.pyc  # Fichiers Python compilés
+*.pyo  # Fichiers Python optimisés
+*.pyd  # Modules dynamiques Python Windows
+.git/  # Historique Git (trop lourd et inutile)
+.gitignore  # Configuration Git (inutile en production)
+.pytest_cache/  # Cache des tests
+.vscode/  # Paramètres VS Code
+*.log  # Fichiers de logs
+.env  # Variables d'environnement sensibles (SÉCURITÉ)
+*.md  # Documentation Markdown
+!README.md  # Exception : on garde le README
