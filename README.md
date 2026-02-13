@@ -41,6 +41,7 @@ python scripts/migration.py
 ## 🐳 Déploiement avec Docker
 
 ### Prérequis
+
 - Docker Desktop installé (Windows/Mac) ou Docker Engine (Linux)
 - Docker Compose installé
 
@@ -62,21 +63,59 @@ docker exec -it healthcare-mongodb mongosh -u admin -p admin123
 ```
 
 ### Interface Web
+
 Accédez à Mongo Express : http://localhost:8081
 
 ### Services déployés
+
 - **MongoDB** : Port 27017
 - **Mongo Express** : Port 8081
 - **Script Migration** : S'exécute automatiquement
 
 ### Volumes persistants
+
 - `mongodb_data` : Données MongoDB
 - `mongodb_config` : Configuration MongoDB
 
 ### Arrêter les services
+
 ```bash
 docker-compose down
 ```
+
+---
+
+## 🔐 Gestion des rôles et permissions
+
+### Utilisateurs créés automatiquement
+
+Le système crée automatiquement deux types d'utilisateurs au démarrage :
+
+#### 👨‍⚕️ Médecin (Lecture/Écriture)
+- **Username :** `medecin_user`
+- **Password :** `medecin123`
+- **Permissions :** Lecture et écriture complète sur la base `healthcare_db`
+- **Cas d'usage :** Ajouter de nouveaux patients, modifier des dossiers
+
+#### 👩‍⚕️ Infirmière (Lecture seule)
+- **Username :** `infirmiere_user`
+- **Password :** `infirmiere123`
+- **Permissions :** Lecture seule sur la base `healthcare_db`
+- **Cas d'usage :** Consulter les dossiers patients sans pouvoir les modifier
+
+### Test des permissions
+
+```bash
+# Tester l'accès médecin (lecture + écriture)
+docker exec -it healthcare-mongodb mongosh -u medecin_user -p medecin123 --authenticationDatabase healthcare_db
+
+# Tester l'accès infirmière (lecture seule)
+docker exec -it healthcare-mongodb mongosh -u infirmiere_user -p infirmiere123 --authenticationDatabase healthcare_db
+```
+
+### Captures d'écran
+
+Les preuves de fonctionnement des rôles sont disponibles dans le dossier `screenshots/`.
 
 ---
 

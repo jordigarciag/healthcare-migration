@@ -5,6 +5,7 @@ version: '3.8'
 # ═══════════════════════════════════════════════════════════════
 
 services:
+
   # ─────────────────────────────────────────────────────────────
   # SERVICE MONGODB - Base de données NoSQL
   # ─────────────────────────────────────────────────────────────
@@ -42,6 +43,10 @@ services:
       
       # Stocke la configuration MongoDB
       - mongodb_config:/data/configdb
+      
+      # ✨ LIGNE AJOUTÉE : Monte le script d'initialisation des rôles
+      # Ce script sera exécuté automatiquement au premier démarrage
+      - ./scripts/init-roles.js:/docker-entrypoint-initdb.d/init-roles.js
     
     # Connecte MongoDB au réseau personnalisé
     networks:
@@ -151,6 +156,7 @@ services:
 # ═══════════════════════════════════════════════════════════════
 # VOLUMES - Stockage persistant des données
 # ═══════════════════════════════════════════════════════════════
+
 volumes:
   # Volume pour les données MongoDB
   # Les données survivent même si le conteneur est supprimé
@@ -164,6 +170,7 @@ volumes:
 # ═══════════════════════════════════════════════════════════════
 # NETWORKS - Réseau pour la communication entre conteneurs
 # ═══════════════════════════════════════════════════════════════
+
 networks:
   # Réseau de type "bridge" (réseau isolé par défaut)
   # Permet aux conteneurs de communiquer entre eux par leur nom
